@@ -1,0 +1,77 @@
+version: "3"
+services:
+  source_db_mysql:
+    container_name: src-db
+    image: mysql:latest
+    command: mysqld --default-authentication-plugin=mysql_native_password
+    restart: always
+    network_mode: "host"
+    ports:
+      - "3306:3306"
+    expose:
+      - "3306"
+    environment: &mysql-env
+      MYSQL_DATABASE: "mysql"
+      MYSQL_USER: "mysql"
+      MYSQL_PASSWORD: "mysql"
+      MYSQL_ROOT_PASSWORD: "mysql"
+      MYSQL_PORT: "3306"
+
+  target_db_pg:
+    container_name: tgt-db
+    image: postgres:latest
+    network_mode: "host"
+    ports:
+      - "5432:5432"
+    expose:
+      - "5432"
+    environment: &pg-env
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_PORT: "5432"
+
+  data_generator:
+    image: data_generator:latest
+    container_name: generator
+    build:
+      context: ./
+      dockerfile: ./data_generator/Dockerfile
+    network_mode: "host"
+    depends_on:
+      - "source_db_mysql"
+      - "target_db_pg"
+    environment:
+      MYSQL_HOST: "192.168.99.100"
+      POSTGRES_HOST: "192.168.99.100"
+      <<: *pg-env
+      <<: *mysql-env
+
+  etl_tool:
+    image: etl_tool:latest
+    container_name: etl_tool
+    build:
+      context: ./
+      dockerfile: ./etl_tool/Dockerfile
+    network_mode: "host"
+    ports:
+      - "80:80"
+    depends_on:
+      - data_generator
+    environment:
+      MYSQL_HOST: "192.168.99.100"
+      POSTGRES_HOST: "192.168.99.100"
+      <<: *pg-env
+      <<: *mysql-env
+
+  airflow:
+    image: airflow:latest
+    container_name: airflow
+    build:
+      context: ./
+      dockerfile: ./airflow_scripts/Dockerfile
+    network_mode: "host"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - "etl_tool"

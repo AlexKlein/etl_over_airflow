@@ -1,0 +1,4 @@
+mysql==0.0.2
+mysqlclient==1.4.6
+peewee==3.13.1
+psycopg2==2.8.4
